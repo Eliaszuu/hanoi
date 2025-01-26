@@ -10,7 +10,7 @@ public class HanoiService {
 
     private HanoiBoard board = HanoiBoard.initializeWithSize(5);
 
-    public HanoiBoard getBoard() {
+    public HanoiBoard getHanoiBoard() {
         return board;
     }
 
