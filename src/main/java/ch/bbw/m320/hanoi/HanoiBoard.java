@@ -21,22 +21,25 @@ import java.util.stream.Stream;
  */
 public record HanoiBoard(List<Integer> pegA, List<Integer> pegB, List<Integer> pegC) {
 
-	public HanoiBoard { // verified this to be a valid board
+	public HanoiBoard {
+		// Verify this to be a valid board
 		Stream.of(pegA, pegB, pegC)
-			.forEach(peg -> {
-				if (!peg.stream().sorted(Comparator.reverseOrder()).toList().equals(peg)) {
-					throw new IllegalStateException("Invalid peg: cannot stack large disks on small ones");
-				}
-			});
+				.forEach(peg -> {
+					if (!peg.stream().sorted(Comparator.reverseOrder()).toList().equals(peg)) {
+						throw new IllegalStateException("Invalid peg: cannot stack large disks on small ones");
+					}
+				});
+
 		var duplicates = Stream.concat(Stream.concat(pegA.stream(), pegB.stream()), pegC.stream())
-			.collect(Collectors.groupingBy(Function.identity(), Collectors.counting()))
-			.entrySet()
-			.stream()
-			.filter(e -> e.getValue() > 1)
-			.map(Map.Entry::getKey)
-			.toList();
+				.collect(Collectors.groupingBy(Function.identity(), Collectors.counting()))
+				.entrySet()
+				.stream()
+				.filter(e -> e.getValue() > 1)
+				.map(Map.Entry::getKey)
+				.toList();
+
 		if (!duplicates.isEmpty()) {
-			throw new IllegalStateException("duplicate disks found: " + duplicates);
+			throw new IllegalStateException("Duplicate disks found: " + duplicates);
 		}
 	}
 
@@ -48,12 +51,13 @@ public record HanoiBoard(List<Integer> pegA, List<Integer> pegB, List<Integer> p
 	 */
 	public static HanoiBoard randomWithSize(int numberOfPieces) {
 		var board = initializeWithSize(numberOfPieces);
+
 		for (var i = board.pegA.iterator(); i.hasNext(); ) {
 			var disk = i.next();
 			var target = Peg.values()[new Random().nextInt(3)];
 			if (target != Peg.A) {
 				i.remove();
-				board.byPeg(target).addLast(disk);
+				board.byPeg(target).add(disk);
 			}
 		}
 		return board;
@@ -67,11 +71,15 @@ public record HanoiBoard(List<Integer> pegA, List<Integer> pegB, List<Integer> p
 	 */
 	public static HanoiBoard initializeWithSize(int numberOfPieces) {
 		if (numberOfPieces <= 0) {
-			throw new IllegalArgumentException("must use at least one disk");
+			throw new IllegalArgumentException("Must use at least one disk");
 		}
-		// fill peg A from largest disk first to the smallest last: [N,... 2,1,0]
-		// all other pegs remain empty
-		var pegA = IntStream.iterate(numberOfPieces - 1, i -> i - 1).limit(numberOfPieces).boxed().toList();
+
+		// Fill peg A from largest disk first to the smallest last: [N, ..., 2, 1, 0]
+		var pegA = IntStream.iterate(numberOfPieces - 1, i -> i - 1)
+				.limit(numberOfPieces)
+				.boxed()
+				.toList();
+
 		return new HanoiBoard(pegA, List.of(), List.of()).copy();
 	}
 
@@ -91,7 +99,7 @@ public record HanoiBoard(List<Integer> pegA, List<Integer> pegB, List<Integer> p
 
 	/**
 	 * @param diskSize the index of the disk to search
-	 * @return on which peg the disk currently resides (or an exception if no such disk exist)
+	 * @return on which peg the disk currently resides (or an exception if no such disk exists)
 	 */
 	public Peg getPegOfDiskWithIndex(int diskSize) {
 		if (pegA.contains(diskSize)) {
@@ -103,7 +111,7 @@ public record HanoiBoard(List<Integer> pegA, List<Integer> pegB, List<Integer> p
 		if (pegC.contains(diskSize)) {
 			return Peg.C;
 		}
-		throw new IllegalStateException("there is no disk with size " + diskSize);
+		throw new IllegalStateException("There is no disk with size " + diskSize);
 	}
 
 	/**
@@ -127,11 +135,28 @@ public record HanoiBoard(List<Integer> pegA, List<Integer> pegB, List<Integer> p
 
 	/**
 	 * Modify a board by moving a disk.
+	 *
 	 * @param move from which peg to which peg a disk has to be moved
 	 * @throws InvalidMoveException if this move is not allowed on the current board
 	 */
-	public void move(Move move) {
-		// TODO: impl
+	public void move(Move move) throws InvalidMoveException {
+		List<Integer> fromPeg = byPeg(move.from());
+		List<Integer> toPeg = byPeg(move.to());
+
+		if (fromPeg.isEmpty()) {
+			throw new InvalidMoveException("Cannot move from an empty peg: " + move.from());
+		}
+
+		int diskToMove = fromPeg.removeLast();
+
+		if (!toPeg.isEmpty() && toPeg.getLast() < diskToMove) {
+			fromPeg.add(diskToMove);
+
+			throw new InvalidMoveException("Cannot place larger disk (" + diskToMove + ") on smaller disk ("
+					+ toPeg.getLast() + ") on peg: " + move.to());
+		}
+
+		toPeg.add(diskToMove);
 	}
 
 	@Override
@@ -150,10 +175,9 @@ public record HanoiBoard(List<Integer> pegA, List<Integer> pegB, List<Integer> p
 	 * A potentially valid move of a single disk, oblivious of the actual board.
 	 *
 	 * @param from starting peg
-	 * @param to target peg
+	 * @param to   target peg
 	 */
 	public record Move(Peg from, Peg to) {
-
 		public Move {
 			if (from == to) {
 				throw new InvalidMoveException("Cannot move to self");
